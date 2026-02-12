@@ -1,94 +1,62 @@
-# Glass Dagger - Makefile with Toolchain Target
-# Single entry point for all build and test operations
+CC = clang
+CLANG = clang
+OPT = opt
 
-.PHONY: all toolchain demo smoke clean help
+# Enzyme Plugin Detection
+ENZYME_PLUGIN = /home/romain/glass-dagger/toolchain/enzyme/LLVMEnzyme-18.so
 
-# Default target
-all: demo
+# Flags
+OPT_FLAGS = -load-pass-plugin=$(ENZYME_PLUGIN)
 
-# Build complete toolchain (LLVM + Enzyme)
-toolchain:
-	@echo "=== Building Glass Dagger Toolchain ==="
-	@echo "This will take 1-3 hours. Get some coffee ☕"
-	@echo ""
-	@bash scripts/toolchain/build_llvm.sh
-	@bash scripts/toolchain/build_enzyme.sh
-	@echo ""
-	@echo "🎉 Toolchain build complete!"
-	@echo ""
-	@echo "Next step: Run the smoke test to validate everything works:"
-	@echo "  source scripts/toolchain/env.sh"
-	@echo "  make smoke"
+all: smoke
 
-# Run full demonstration (smoke test + benchmark)
-demo: smoke
-	@echo ""
-	@echo "✅ Demo complete!"
-	@echo ""
-	@echo "Next steps:"
-	@echo "  - Implement double pendulum simulation (c/double_pendulum.c)"
-	@echo "  - Add PyTorch baseline (python/baseline_pytorch.py)"
-	@echo "  - Run full benchmark (make benchmark)"
+# Create artifacts directory
+artifacts-dir:
+	@mkdir -p artifacts
 
-# Run smoke test to validate Enzyme toolchain
-smoke:
-	@echo "Running Enzyme smoke test..."
+smoke: artifacts-dir
+	@echo "Running Smoke Test..."
 	@bash scripts/smoke.sh
 
-# Run M1: Simple loss function and optimization
-m1:
+m1: artifacts-dir
 	@echo "Running M1: Loss and Optimization..."
 	@bash scripts/m1_loss.sh
 
-# Run M2: Double pendulum optimization
-m2:
+m2: artifacts-dir
 	@echo "Running M2: Double Pendulum Optimization..."
 	@bash scripts/m2_pendulum.sh
 
-# Run verification suite (all tests with threshold checks)
-verify:
+# M3 Benchmark Targets
+bench: bench-demo
+
+bench-demo: pendulum_bench
+	@echo "Running M3 Benchmark Demo..."
+	@python3 python/bench_demo.py --strict
+
+bench-full: pendulum_bench
+	@echo "Running M3 Full Benchmark (PyTorch)..."
+	@python3 python/simple_bench.py
+
+pendulum_bench: artifacts-dir
+	@mkdir -p build
+	@echo "Step 1: Compiling physics engine..."
+	@$(CLANG) -O3 -Ic -c c/double_pendulum.c -o build/double_pendulum.o
+	@echo "Step 2: Compiling benchmark to LLVM IR..."
+	@$(CLANG) -I. -Ic -S -emit-llvm -O2 c/pendulum_bench.c -o build/pendulum_bench_raw.ll
+	@echo "Step 3: Applying Enzyme AD pass..."
+	@$(OPT) -load-pass-plugin=$(ENZYME_PLUGIN) -passes=enzyme build/pendulum_bench_raw.ll -S -o build/pendulum_bench_enzyme.ll
+	@echo "Step 4: Final optimization..."
+	@$(OPT) -O3 build/pendulum_bench_enzyme.ll -S -o build/pendulum_bench_opt.ll
+	@echo "Step 5: Generating machine code..."
+	@$(CLANG) build/pendulum_bench_opt.ll build/double_pendulum.o -lm -o build/pendulum_bench
+	@echo "✅ Build complete: ./build/pendulum_bench"
+
+verify: artifacts-dir
 	@bash scripts/verify.sh
 
-# Capture golden run (versions + results)
-golden:
-	@bash scripts/capture_golden.sh
-
-# Capture IR artifacts (LLVM pipeline stages)
-ir:
+ir: artifacts-dir
 	@bash scripts/capture_ir.sh
 
-# Run full benchmark suite (not yet implemented)
-benchmark:
-	@echo "❌ Benchmark not yet implemented"
-	@echo "TODO: Implement M2-M4 (double pendulum + PyTorch baseline)"
-	@exit 1
-
-# Clean all build artifacts
 clean:
-	@echo "Cleaning build artifacts..."
-	@rm -rf build/
-	@rm -rf artifacts/*.json artifacts/*.md
-	@rm -rf c/*.o c/*.ll
-	@echo "✅ Clean complete"
+	@rm -rf build artifacts/*.json artifacts/ir/*.ll
 
-# Show help
-help:
-	@echo "Glass Dagger Enzyme - Build System"
-	@echo ""
-	@echo "Targets:"
-	@echo "  make toolchain  - Build LLVM 18 + Enzyme from source (1-3 hours)"
-	@echo "  make demo       - Run smoke test (validates Enzyme toolchain)"
-	@echo "  make smoke      - Run smoke test only"
-	@echo "  make benchmark  - Run full benchmark suite (TODO)"
-	@echo "  make clean      - Remove all build artifacts"
-	@echo "  make help       - Show this help message"
-	@echo ""
-	@echo "Requirements:"
-	@echo "  - WSL2 with Ubuntu 22.04"
-	@echo "  - 20GB+ free disk space"
-	@echo "  - 8GB+ RAM"
-	@echo ""
-	@echo "First time setup:"
-	@echo "  1. make toolchain     # Build LLVM + Enzyme"
-	@echo "  2. source scripts/toolchain/env.sh"
-	@echo "  3. make smoke         # Validate"
