@@ -1,0 +1,24 @@
+# Build artifacts
+build/
+*.o
+*.bc
+
+# LLVM IR (except artifacts/)
+*.ll
+!artifacts/**/*.ll
+
+# Toolchain (users build locally)
+toolchain/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Key files accidentally added
+key.md*

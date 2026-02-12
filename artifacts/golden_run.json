@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-02-12T14:16:07Z",
+  "environment": {
+    "os": "Linux 6.6.87.2-microsoft-standard-WSL2",
+    "llvm_version": "18.1.8",
+    "enzyme_plugin": "LLVMEnzyme.so",
+    "compiler_flags": "-O2 -fno-vectorize -fno-slp-vectorize -ffast-math"
+  },
+  "results": {
+    "smoke_test": {
+      "status": "passed",
+      "square_gradient_3.0": 6.000000,
+      "poly_gradient_2.0": 39.000000
+    },
+    "m1_loss": {
+      "status": "passed",
+      "final_error": 0.0004
+    },
+    "m2_pendulum": {
+      "status": "passed",
+      "initial_loss": 0.977403,
+      "final_loss": 0.053269,
+      "final_error_m": 0.224129,
+      "iterations": 200,
+      "omega1_final": 1.422795,
+      "omega2_final": 1.005506
+    }
+  }
+}

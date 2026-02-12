@@ -1,0 +1,7 @@
+# Artifacts Directory
+
+This directory stores benchmark results and performance data.
+
+Files generated:
+- `bench.json` - Machine-readable benchmark data
+- `bench.md` - Human-readable benchmark report
