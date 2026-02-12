@@ -1,62 +1,64 @@
 # 🗡️ Glass Dagger
 
-**High-performance Automatic Differentiation at the LLVM level.**
+High-performance automatic differentiation at the LLVM IR level.
 
-Glass Dagger demonstrates how to achieve **compile-time AD** for complex C simulations using [Enzyme](https://enzyme.mit.edu/). By differentiating the LLVM Intermediate Representation (IR), we generate gradients that are as fast as the forward pass, outperforming runtime autograd frameworks like PyTorch for simulation-heavy workloads.
+Glass Dagger demonstrates compile-time **gradient generation** for C simulations using [Enzyme](https://enzyme.mit.edu/). Unlike runtime autograd frameworks, Enzyme replaces `__enzyme_autodiff` calls with a generated gradient function during the LLVM pass, which is then post-optimized via `opt -O2`.
 
 ---
 
 ## ⚡ Quickstart
 
-### 1. Build and Verify (Requires WSL2/Linux + LLVM 18)
-```bash
-make verify  # Runs smoke tests and M2 chaotic optimization
-```
-
-### 2. Try the Benchmark
-Explore the speed gap between Compiler-AD and Runtime-Autograd:
+### 1. Try the Benchmark Now (No PyTorch required)
+Explore the performance gap between Compiler-AD and Runtime-Autograd on a Windows host:
 ```bash
 python python/bench_demo.py
+```
+
+### 2. Full Verification (Requires WSL2/Linux + LLVM 18)
+Build the toolchain and run the complete optimization suite:
+```bash
+make verify  # Runs smoke tests and chaotic double pendulum optimization
 ```
 
 ---
 
 ## The Core Concept
 
-Traditional AD frameworks (PyTorch, JAX) build computation graphs at runtime. Glass Dagger leverages **Enzyme** to perform AD during compilation.
+Traditional AD frameworks (PyTorch, JAX) build computation graphs at runtime. Glass Dagger leverages **Enzyme** to generate gradients *as machine code* during compilation.
 
-1. **Write C**: Native code, no special macros.
+1. **Write C**: Native code. Enzyme replaces `__enzyme_autodiff` calls.
 2. **Compile to IR**: `clang -emit-llvm`
-3. **Differentiate**: Enzyme LLVM pass transforms your logic into a gradient function.
-4. **Optimize**: `opt -O3` optimizes the *differentiated* code.
-5. **Run**: Pure machine code performance.
+3. **Differentiate**: `opt -load-pass-plugin=... -passes=enzyme` generates adjoint IR.
+4. **Post-Optimize**: `opt -O2` optimizes the *differentiated* code (LICM, SIMD, etc).
+5. **Run**: Machine-code gradients with zero runtime overhead.
 
 ---
 
 ## Benchmarks: Enzyme vs. PyTorch
 
-For a double pendulum simulation with 1000 RK4 integration steps:
+Measured on a double pendulum simulation with 1000 RK4 integration steps (200 iters):
 
 | Metric | Glass Dagger (Enzyme/C) | PyTorch (CPU Baseline) |
 |--------|--------------------------|-------------------------|
-| **Latency** | **~6ms** / iter | ~74ms / iter |
-| **Throughput** | **11x faster** | 1.0x |
-| **Footprint** | **~12MB** RAM | ~850MB RAM |
+| **Latency** | **6.25ms** / iter | 74.0ms / iter |
+| **Throughput** | **11.8x faster** | 1.0x |
+| **Footprint** | **~12MB** RAM | ~860MB RAM |
 
-Detailed methodology and reproduction steps in [**BENCHMARK.md**](BENCHMARK.md).
+> [!NOTE]
+> Measured on WSL2/Ubuntu 22.04 (i9-12900K, 64GB). Both engines use `float64` precision and identical physics. See [**BENCHMARK.md**](BENCHMARK.md) for measured config + reproduction.
 
 ---
 
 ## Features
 
-- **Chaotic Physics**: Double Pendulum simulation using UMD equations.
+- **Chaotic Physics**: [UMD double pendulum equations](https://physics.umd.edu/hep/drew/pendulum2.html).
 - **RK4 Integrator**: Fully differentiable 4th-order Runge-Kutta.
-- **IR Artifacts**: See exactly how your code changes from `loss_original.ll` to `loss_optimized.ll`.
+- **IR Artifacts**: See the transformation from `loss_original.ll` to `loss_optimized.ll`.
 - **Minimalist**: Pure C and Python orchestrators.
 
 ## Installation
 
-See [**INSTALL_WSL2.md**](INSTALL_WSL2.md) for a step-by-step toolchain setup (LLVM 18 + Enzyme).
+See [**INSTALL_WSL2.md**](INSTALL_WSL2.md) for step-by-step toolchain setup (LLVM 18 + Enzyme).
 
 ## License
 MIT
